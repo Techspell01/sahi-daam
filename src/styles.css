@@ -595,3 +595,10 @@ button.tile:active { transform: scale(0.98); }
 .farm-ml { font-family: var(--sans, inherit); font-weight: 400; color: var(--muted); font-size: 13px; }
 .receipt.farm .rc-when { text-align: right; font-size: 14.5px; color: var(--ink); white-space: nowrap; }
 .receipt.farm .rc-when .faint { display: block; font-size: 11.5px; }
+
+/* The static text in each page's HTML, for search engines and for the moment before the app starts. */
+.seo { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; line-height: 1.55; }
+.seo h1 { font-size: 30px; line-height: 1.15; margin: 8px 0 12px; }
+.seo h2 { font-size: 17px; margin: 22px 0 6px; }
+.seo ul { padding-left: 18px; margin: 0; }
+.seo a { color: var(--ink); }

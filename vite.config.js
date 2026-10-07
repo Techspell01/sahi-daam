@@ -9,7 +9,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       // og.png is only for link previews, so phones don't need to cache it.
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['og.png'] },
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['og.png'], navigateFallbackDenylist: [/\.\w+$/] },
       manifest: {
         name: 'Sahi Daam',
         short_name: 'Sahi Daam',

@@ -32,6 +32,22 @@ function useTheme(theme) {
   }, [theme]);
 }
 
+// Each screen gets its own tab title (the build writes the same ones into the
+// static pages search engines read; see scripts/seo.mjs).
+function usePageTitle(route) {
+  const item = route.name === 'item' ? ITEMS.find(i => i.id === route.id) : null;
+  useEffect(() => {
+    document.title = {
+      home: 'Sahi Daam: fair prices across Kerala',
+      item: item ? `${item.name} price today in Kerala | Sahi Daam` : 'Sahi Daam',
+      rates: 'Gold, fuel and farm rates today in Kerala | Sahi Daam',
+      pulse: 'Prices by district this week | Sahi Daam',
+      auto: 'Kerala auto fare calculator | Sahi Daam',
+      me: 'You | Sahi Daam',
+    }[route.name] ?? 'Sahi Daam';
+  }, [route.name, item]);
+}
+
 export default function App() {
   const route = useRoute();
   const data = useData();
@@ -44,6 +60,7 @@ export default function App() {
   const index = useMemo(() => new Map(districtIndex(data.latest, new Set(ITEMS.filter(i => i.cat === 'veg').map(i => i.id)), AREAS)
     .map(r => [r.id, r])), [data.latest]);
   useTheme(settings.theme);
+  usePageTitle(route);
 
   const openAdd = useCallback(init => setAdding(init ?? {}), []);
   const closeAdd = useCallback(() => setAdding(null), []);

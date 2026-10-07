@@ -45,7 +45,7 @@ The same maths runs in the browser (offline) and in Postgres (`fair_range()`), a
 ## Under the hood
 
 ```
- Phone (React 19 PWA, IndexedDB cache)  ──reads──▶  Supabase Postgres  ◀──writes── Edge Function (twice a day, pg_cron)
+ Phone (React 19 PWA, IndexedDB cache)  ──reads──▶  Supabase Postgres  ◀──writes── Edge Function (pg_cron, every 15 min / hourly)
    │  anonymous sign-in, offline send queue          RLS · rate limits                 ├─ VFPCK, 7 markets
    └─ Photon + OSRM (OpenStreetMap) for places       security-definer reads            ├─ Agmarknet, 14 districts
       and road distance; location never leaves       (no user ids)                     └─ Goodreturns fuel, LPG, gold
@@ -54,7 +54,8 @@ The same maths runs in the browser (offline) and in Postgres (`fair_range()`), a
 
 - **No accounts, still abuse-resistant:** anonymous Supabase sign-in, row-level security (you can only see and delete your own rows), 30 prices a day per account, a 10-minute delay before a new account's prices count, and server-set timestamps. Everyone's prices are read through functions that never return who reported what.
 - **Built to survive a launch spike:** incremental sync (a return visit downloads only what's new), keyset pagination, and an IndexedDB cache. In a load test with 60,000 reports, return visits took about 25 ms at p95 with 1,000 users in 20 s, with no errors, and the production build stays smooth on a 4× throttled phone CPU.
-- **Tests:** 52 unit tests (price engine, live-data parsers, district logic), 21 pgTAP database tests, a SQL-vs-JS parity check, and 31 end-to-end security checks run against the real API with throwaway accounts.
+- **Findable on search engines:** after `vite build`, `scripts/seo.mjs` writes a static page for every route (home, rates, pulse, auto and each of the 38 items) with its own title, description, canonical URL and readable text, plus `sitemap.xml`, `robots.txt` and schema.org data. The app takes over when it loads.
+- **Tests:** 57 unit tests (price engine, live-data parsers, district logic), 23 pgTAP database tests, a SQL-vs-JS parity check, and 31 end-to-end security checks run against the real API with throwaway accounts.
 
 ## Run it locally
 

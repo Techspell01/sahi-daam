@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AREA, AREAS, CATEGORIES, ITEM, ITEMS, searchItems, UNITS } from '../lib/catalog.js';
-import { cheaperPricier, rupees } from '../lib/format.js';
+import { ago, cheaperPricier, rupees } from '../lib/format.js';
 import { nearestArea, silentPosition } from '../lib/geo.js';
 import { districtIndex, versus } from '../lib/market.js';
 import { itemSummary } from '../lib/prices.js';
 import { navigate } from '../lib/router.js';
-import { setSettings, SHARED, useStore } from '../lib/store.js';
+import { setSettings, SHARED, useLiveMeta, useStore } from '../lib/store.js';
 import { Sparkline } from '../components/charts.jsx';
 import { Icon, Mark } from '../components/Icons.jsx';
 import { localName } from '../components/ui.jsx';
@@ -80,6 +80,7 @@ function WhereCard({ data, area }) {
 
 export default function Home({ data, onPickArea }) {
   const settings = useStore(s => s.settings);
+  const meta = useLiveMeta();
   const recent = useStore(s => s.recent);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
@@ -107,6 +108,9 @@ export default function Home({ data, onPickArea }) {
 
       <h1 className="display">Is it the<br />right price?</h1>
       <p className="lede">Fair prices across Kerala, before you pay.</p>
+      {meta?.checkedAt && (
+        <p className="live-line"><i className="live-dot" aria-hidden="true" />Live prices · checked {ago(meta.checkedAt)}</p>
+      )}
 
       <div className="search">
         {Icon.search()}
