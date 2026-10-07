@@ -82,7 +82,8 @@ export default function Me({ onPickArea }) {
               Vegetable prices come from VFPCK's district markets and Agmarknet, gold, fuel and gas from Goodreturns,
               and farm prices from the Rubber Board and the Spices Board. The app checks for new prices every minute.
               Items with no public source show a price only once people report. The quotes you check stay on this phone, and so
-              does your location: it's only used to find your district and auto routes.</>
+              does your location: it's only used to find your district and auto routes. To count visitors, the app sends
+              a random number made on this phone when it opens; nothing else goes with it.</>
           ) : (
             <> Right now the prices are demo data. Your own reports and checks are saved only on this phone.</>
           )}

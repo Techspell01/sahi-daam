@@ -63,7 +63,7 @@ const emit = () => listeners.forEach(l => l());
 
 function set(patch) {
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
-  const { shared, meta, ...mine } = state; // shared prices have their own store; meta is never saved
+  const { shared, meta, usage, ...mine } = state; // shared prices have their own store; meta and usage are never saved
   try { localStorage.setItem(KEY, JSON.stringify(mine)); } catch { /* private mode: keep it in memory */ }
   emit();
 }
@@ -313,6 +313,35 @@ async function tick() {
 
 export const useLiveMeta = () => useStore(s => s.meta);
 
+// How many people use the app ({ now, today, total }), for the line on Home.
+// This phone is counted by a random id kept in localStorage, sent when the app
+// opens and at most every 3 minutes while it's open. Nothing else goes with it.
+// Search-engine bots and automated browsers aren't counted.
+const VISITOR_KEY = 'sahidaam:visitor';
+let tabVisitor = null;
+let lastVisit = 0;
+const robot = () => navigator.webdriver || /bot|crawl|spider|slurp|headless|lighthouse|preview/i.test(navigator.userAgent);
+
+function visitorId() {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) localStorage.setItem(VISITOR_KEY, (id = remote.uuid()));
+    return id;
+  } catch {
+    return (tabVisitor ??= remote.uuid()); // private mode: counted once per tab
+  }
+}
+
+async function visit() {
+  if (robot() || Date.now() - lastVisit < 3 * 60e3) return;
+  lastVisit = Date.now();
+  const usage = await remote.visit(visitorId());
+  state = { ...state, usage };
+  emit();
+}
+
+export const useUsage = () => useStore(s => s.usage);
+
 export const sync = () => (SHARED ? queue(sendAll) : chain);
 
 // Send anything waiting, then fetch everyone's latest prices. Without `force`
@@ -326,12 +355,14 @@ export function refresh({ force = false } = {}) {
 }
 
 if (SHARED && typeof window !== 'undefined') {
+  const counted = () => visit().catch(() => { /* offline: try again later */ });
   refresh({ force: true });
+  counted();
   window.addEventListener('online', () => refresh({ force: true }));
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') refresh();
+    if (document.visibilityState === 'visible') { refresh(); counted(); }
   });
   setInterval(() => {
-    if (document.visibilityState === 'visible' && navigator.onLine !== false) queue(tick);
+    if (document.visibilityState === 'visible' && navigator.onLine !== false) { queue(tick); counted(); }
   }, 60e3);
 }

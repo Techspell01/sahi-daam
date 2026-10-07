@@ -585,6 +585,9 @@ button.tile:active { transform: scale(0.98); }
 /* Rates: freshness line and farm prices */
 .live-line { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); margin: 6px 0 4px; }
 .live-line .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: live-pulse 2s ease-in-out infinite; }
+.live-line.people { margin-top: 0; }
+.live-line.people svg { flex: none; margin-left: -3px; }
+.live-line.people b { color: var(--ink); font-weight: 650; }
 @keyframes live-pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .live-line .live-dot { animation: none; } }
 .farm-group + .farm-group { margin-top: 18px; }

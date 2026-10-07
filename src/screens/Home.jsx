@@ -5,7 +5,7 @@ import { nearestArea, silentPosition } from '../lib/geo.js';
 import { districtIndex, versus } from '../lib/market.js';
 import { itemSummary } from '../lib/prices.js';
 import { navigate } from '../lib/router.js';
-import { setSettings, SHARED, useLiveMeta, useStore } from '../lib/store.js';
+import { setSettings, SHARED, useLiveMeta, useStore, useUsage } from '../lib/store.js';
 import { Sparkline } from '../components/charts.jsx';
 import { Icon, Mark } from '../components/Icons.jsx';
 import { localName } from '../components/ui.jsx';
@@ -78,9 +78,24 @@ function WhereCard({ data, area }) {
   );
 }
 
+// "12 people here now · 230 today · 1,840 so far". You count as here even
+// before the server's 30-second cache catches up.
+function People({ usage }) {
+  const now = Math.max(1, usage.now);
+  const today = Math.max(now, usage.today);
+  const n = x => x.toLocaleString('en-IN');
+  return (
+    <p className="live-line people">
+      {Icon.user(14)}
+      <span><b>{n(now)}</b> {now === 1 ? 'person' : 'people'} here now · {n(today)} today · {n(Math.max(today, usage.total))} so far</span>
+    </p>
+  );
+}
+
 export default function Home({ data, onPickArea }) {
   const settings = useStore(s => s.settings);
   const meta = useLiveMeta();
+  const usage = useUsage();
   const recent = useStore(s => s.recent);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
@@ -111,6 +126,7 @@ export default function Home({ data, onPickArea }) {
       {meta?.checkedAt && (
         <p className="live-line"><i className="live-dot" aria-hidden="true" />Live prices · checked {ago(meta.checkedAt)}</p>
       )}
+      {usage && <People usage={usage} />}
 
       <div className="search">
         {Icon.search()}

@@ -41,6 +41,13 @@ export const fromRate = r => ({ kind: r.kind, region: r.region, day: localDay(r.
 // When the server last checked its sources, and when any price last changed.
 // One tiny row: the app reads it every minute and downloads prices only when
 // changedAt moves.
+// The visitor count. `id` is a random id made on this phone; nothing else is sent.
+export async function visit(id) {
+  const { data, error } = await (await db()).rpc('visit', { v: id });
+  if (error) throw error;
+  return { now: data.now, today: data.today, total: data.total };
+}
+
 export async function fetchLiveMeta() {
   const { data, error } = await (await db()).from('live_meta').select('checked_at, changed_at').maybeSingle();
   if (error) throw error;
