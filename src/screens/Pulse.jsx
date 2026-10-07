@@ -70,9 +70,14 @@ export default function Pulse({ data }) {
         <details className="basket">
           <summary>What's in the basket</summary>
           <ul>
-            {BASKET.map(([id, qty]) => <li key={id}><span>{ITEM[id].name}</span><span className="faint">{qtyLabel(id, qty)}</span></li>)}
+            {basket.items.map(([id, qty]) => <li key={id}><span>{ITEM[id].name}</span><span className="faint">{qtyLabel(id, qty)}</span></li>)}
           </ul>
         </details>
+        {basket.items.length < BASKET.length && (
+          <p className="sub after">Counting the {basket.items.length} items with real prices this week.{' '}
+            {BASKET.filter(([id]) => !basket.items.some(([b]) => b === id)).map(([id]) => ITEM[id].name).join(', ')} join
+            once people report what they paid.</p>
+        )}
         <DataTable caption="Weekly kitchen basket cost by day" columns={['Day', 'Basket cost']}
           rows={known.slice().reverse().map(p => [shortDate(p.day), rupees(p.value)])} />
       </section>}

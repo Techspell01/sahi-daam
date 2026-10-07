@@ -1,6 +1,6 @@
 -- Live prices and fetching only what's new. Run with: npx supabase test db
 begin;
-select plan(11);
+select plan(13);
 
 -- market_daily: VFPCK's retail price, else Agmarknet for Ernakulam, else Kerala.
 -- (A day in 2001, so real prices already in the table can't interfere.)
@@ -35,6 +35,15 @@ select is((select count(*)::int from shared_reports(after => now() - interval '1
 select is((select count(*)::int from shared_reports() where visible_at <> date_trunc('minute', visible_at)), 0,
   'visible_at is rounded to the minute');
 reset role;
+
+-- live_meta.changed_at moves for a new or changed price, not for the same price saved again.
+update public.live_meta set changed_at = '2001-01-01';
+insert into public.rates (kind, region, day, price, source) values ('copra', 'kerala', '2001-01-05', 100, 'agmarknet');
+select isnt((select changed_at from public.live_meta), '2001-01-01'::timestamptz, 'a new price moves changed_at');
+update public.live_meta set changed_at = '2001-01-01';
+insert into public.rates (kind, region, day, price, source) values ('copra', 'kerala', '2001-01-05', 100, 'agmarknet')
+  on conflict (kind, region, day) do update set price = excluded.price, fetched_at = now();
+select is((select changed_at from public.live_meta), '2001-01-01'::timestamptz, 'saving the same price again does not');
 
 select * from finish();
 rollback;

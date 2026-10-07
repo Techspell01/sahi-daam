@@ -12,6 +12,7 @@
 - **All 14 districts.** Prices are for your district, picked by hand or from your location. Each item shows where it's cheapest this week, and Pulse ranks the districts and has a price table for every district.
 - **"You're in Ernakulam right now: vegetables 7% pricier than Thrissur."** If your phone is in another district, the app says so and offers to switch.
 - **Today's rates:** 22K and 24K gold per gram and per pavan, silver, and your district's petrol, diesel and LPG cylinder price.
+- **Farm prices for growers:** rubber (RSS-4, RSS-5, ISNR-20, latex), pepper, cardamom, nutmeg, mace, clove, coconut, copra, arecanut, coffee, cocoa, cashew, paddy and tapioca.
 - **Auto fare:** start from where you are, search any place in Kerala, and see the meter fare on the real road distance, with a big "Show the driver" screen in English and Malayalam.
 - **Add what you paid.** It's anonymous and takes five seconds. Real reports take over from market prices once there are enough.
 
@@ -22,9 +23,13 @@
 | [VFPCK](https://www.vfpck.org/) (Kerala's Vegetable & Fruit Promotion Council) | Daily retail and wholesale prices at 7 district markets | Vegetable shop prices. The main source. |
 | [Agmarknet](https://agmarknet.gov.in/) (Govt. of India) | Daily mandi (wholesale) prices per district | Items and districts VFPCK doesn't cover, labelled as estimates |
 | [Goodreturns](https://www.goodreturns.in/) | Fuel and LPG per district, gold and silver for Kerala | Today's rates |
+| [Rubber Board](https://rubberboard.gov.in/) | Daily RSS-4, RSS-5, ISNR-20 and latex prices, Kottayam | Farm prices |
+| [Spices Board](https://www.indianspices.com/) | Daily Kochi prices for pepper, nutmeg, mace and clove, and the small-cardamom e-auctions | Farm prices |
 | People using the app | What they actually paid | Takes over once an item has enough recent reports |
 
-A server job fetches everything twice a day. Items with no public source (fish, meat, eggs, milk, services) show clearly labelled **sample** data until people report real prices.
+**Every price shown is real.** Items with no public source (fish, meat, eggs, milk, services) show "–" until people report what they paid.
+
+**How fresh:** the server checks gold and silver every 15 minutes and everything else every hour. The app checks every minute while it's open, reading one tiny row, and downloads prices only when something changed. Each price shows its own date, and the Rates tab shows when the server last checked. The sources themselves publish about once a day (fuel at 6 am, markets in the afternoon, LPG monthly), so polling them every minute wouldn't make anything more accurate.
 
 **An honest limitation:** only VFPCK publishes shop prices, for 7 districts. The other districts show their mandi price as plain text and aren't ranked. Mandi levels differ for reasons that have nothing to do with shops (Wayanad's mandis ran at about half the Kerala middle on every vegetable), so comparing them with shop prices would mislead.
 
@@ -82,9 +87,10 @@ src/lib/geo.js        GPS → district, place search (Photon), road distance (OS
 src/lib/store.js      app state, offline send queue, incremental sync
 src/lib/remote.js     every Supabase call
 src/lib/catalog.js    items (Malayalam/Hindi names), the 14 districts, Kochi landmarks
+src/lib/farm.js       the farm prices shown on the Rates tab
 src/screens/          Check, Item, Auto, Rates, Pulse, You
 supabase/migrations/  tables, row-level security, limits, fair_price() in SQL
-supabase/functions/   refresh-prices: the twice-daily data job
+supabase/functions/   refresh-prices: the data job (gold every 15 min, the rest hourly)
 supabase/tests/       pgTAP tests
 marketing/            logo, post images, screenshots, launch posts
 ```

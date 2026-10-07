@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DISTRICTS, parseAgmarknet, parseDayTitle, parseFuel, parseGold, parseLpg, parseSilver, parseVfpck,
+  DISTRICTS, FARM_KINDS, parseAgmarknet, parseDayTitle, parseFarmAgmarknet, parseFuel, parseGold, parseLpg, parseRubber,
+  parseSilver, parseSpices, parseVfpck,
 } from '../../supabase/functions/refresh-prices/sources.ts';
 import { AREAS } from './catalog.js';
+import { FARM } from './farm.js';
+import { basketSeries } from './prices.js';
 import { withDemo } from './demo.js';
 import { nearestArea } from './geo.js';
 import {
@@ -260,5 +263,57 @@ describe('source parsers', () => {
       { kind: 'lpg', region: 'ernakulam', day: '2026-09-01', price: 949 },
       { kind: 'lpg', region: 'ernakulam', day: '2026-05-01', price: 920 },
     ]);
+  });
+});
+
+describe('farm prices', () => {
+  it('reads the Rubber Board: Kottayam, per 100 kg → per kg, dated by the heading above the table', () => {
+    const html = `<p>Updated 30-06-2022</p><p>देशी बाज़ार 07-10-2026 को प्रति 100 कि.ग्रा. कोट्टयम कोच्ची</p>
+      <table><tr><td>श्रेणी</td><td>₹</td><td>$</td></tr><tr><td>&#160;RSS4</td><td>28150.0</td><td>291.35</td></tr>
+      <tr><td>ISNR20</td><td>26500.0</td><td>274.25</td></tr><tr><td>Latex(60%)</td><td>20340.0</td><td>210.50</td></tr></table>
+      <table><tr><td>RSS4</td><td>27200.0</td><td>281.50</td></tr></table>`;
+    expect(parseRubber(html)).toEqual([
+      { kind: 'rubber_rss4', region: 'kerala', day: '2026-10-07', price: 281.5, source: 'rubberboard' },
+      { kind: 'rubber_isnr20', region: 'kerala', day: '2026-10-07', price: 265, source: 'rubberboard' },
+      { kind: 'rubber_latex', region: 'kerala', day: '2026-10-07', price: 203.4, source: 'rubberboard' },
+    ]);
+  });
+
+  it('reads the Spices Board: Kochi prices, and cardamom auctions weighted by kilos sold', () => {
+    const row = (...v) => `<tr>${v.map(c => `<td>${c}</td>`).join('')}</tr>`;
+    const html = `<table>${row('Date', 'Spice', 'Market Centre', 'State', 'Grade', 'Source', 'Min', 'Max', 'Avg')}
+      ${row('07-Oct-2026', 'Pepper', 'Cochin', 'KERALA', 'Ungarbled', 'Daily News Paper', '-', '-', '704.00')}
+      ${row('07-Oct-2026', 'Pepper', 'Cochin', 'KERALA', 'Garbled', 'Daily News Paper', '-', '-', '724.00')}
+      ${row('07-Oct-2026', 'Pepper', 'Delhi', 'DELHI', 'Ungarbled', 'Daily News Paper', '-', '-', '999.00')}</table>
+      <div>Spice: Small Cardamom, Date of Auction: 07-Oct-2026, Auctioneer: A, Qty Sold (Kgs): 100, Max Price (Rs./Kg): 3600.00, Avg. Price (Rs./Kg): 3000.00</div>
+      <div>Spice: Small Cardamom, Date of Auction: 07-Oct-2026, Auctioneer: B, Qty Sold (Kgs): 300, Max Price (Rs./Kg): 3800.00, Avg. Price (Rs./Kg): 3200.00</div>`;
+    const out = Object.fromEntries(parseSpices(html).map(r => [r.kind, r.price]));
+    expect(out).toEqual({ pepper: 704, pepper_garbled: 724, cardamom: 3150 });
+  });
+
+  it('reads Agmarknet farm crops per quintal as per kg', () => {
+    const json = { data: {
+      columns: [{ key: 'price_group', columns: [{ key: 'as_on_price', title: '05 Oct, 2026' }, { key: 'one_day_ago_price', title: '04 Oct, 2026' }] }],
+      records: [{ cmdt_name: 'Copra', as_on_price: '13900.00', one_day_ago_price: null }, { cmdt_name: 'Paddy(Common)', as_on_price: '2815.00' }],
+    } };
+    expect(parseFarmAgmarknet(json)).toEqual([
+      { kind: 'copra', region: 'kerala', day: '2026-10-05', price: 139, source: 'agmarknet' },
+      { kind: 'paddy', region: 'kerala', day: '2026-10-05', price: 28.15, source: 'agmarknet' },
+    ]);
+  });
+
+  it('shows exactly the crops the server fetches', () => {
+    expect(FARM.map(f => f.kind).sort()).toEqual([...FARM_KINDS].sort());
+  });
+});
+
+describe('kitchen basket', () => {
+  it('counts only the items that have a price this week', () => {
+    const market = marketByItem(['tomato', 'onion'].flatMap(id => [0, 1, 2, 3, 4, 5, 6, 7].map(n => ({
+      itemId: id, region: 'ernakulam', day: day(n), source: 'vfpck', price: id === 'tomato' ? 50 : 60,
+    }))), 'ernakulam', NOW);
+    const basket = basketSeries([], NOW, 10, market);
+    expect(basket.items).toEqual([['tomato', 1], ['onion', 1]]);
+    expect(basket.at(-1).value).toBe(110);
   });
 });

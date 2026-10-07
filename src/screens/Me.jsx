@@ -79,8 +79,9 @@ export default function Me({ onPickArea }) {
           {SHARED ? (
             <> Prices you add are shared with everyone, with only the area, never your name or exact location.
               There's no sign-up: this phone gets an anonymous account the first time you add a price.
-              Vegetable prices come daily from VFPCK's district markets and Agmarknet mandi prices, and gold, fuel and
-              gas rates from Goodreturns. Items marked sample have no live source yet. The quotes you check stay on this phone, and so
+              Vegetable prices come from VFPCK's district markets and Agmarknet, gold, fuel and gas from Goodreturns,
+              and farm prices from the Rubber Board and the Spices Board. The app checks for new prices every minute.
+              Items with no public source show a price only once people report. The quotes you check stay on this phone, and so
               does your location: it's only used to find your district and auto routes.</>
           ) : (
             <> Right now the prices are demo data. Your own reports and checks are saved only on this phone.</>

@@ -1,11 +1,15 @@
-// Fetches live prices for every Kerala district into the database: VFPCK retail
-// prices at district markets (and their Kerala average), Agmarknet mandi prices
-// per district and Kerala-wide, and petrol and diesel per district. Called twice a
-// day by pg_cron through public.refresh_prices(), with a shared secret.
+// Fetches live prices into the database, called by pg_cron through
+// public.refresh_prices(tier) with a shared secret:
+//   'fast' (every 15 minutes): gold and silver, which change during the day.
+//   'all' (every hour): everything. VFPCK retail at district markets (and their
+//     Kerala average), Agmarknet per district and Kerala-wide, fuel and LPG per
+//     district, gold, silver, and farm prices (Rubber Board, Spices Board, Agmarknet).
+// Each run ends by marking live_meta.checked_at; price changes move changed_at.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
-  AGMARKNET, agmarknetBody, DISTRICTS, fuelUrl, type FuelRow, GOLD, lpgUrl, type MarketRow, parseAgmarknet, parseFuel,
-  parseGold, parseLpg, parseSilver, parseVfpck, type RateRow, SILVER, vfpckUrl,
+  AGMARKNET, agmarknetBody, DISTRICTS, farmBody, fuelUrl, type FuelRow, GOLD, lpgUrl, type MarketRow, parseAgmarknet,
+  parseFarmAgmarknet, parseFuel, parseGold, parseLpg, parseRubber, parseSilver, parseSpices, parseVfpck, type RateRow,
+  RUBBER, SILVER, SPICES, vfpckUrl,
 } from './sources.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -110,29 +114,39 @@ async function refreshFuel() {
   return { rows: rows.length, errors };
 }
 
-// Gold and silver for Kerala, and the LPG cylinder per district (Pathanamthitta,
-// which has no page, uses its fuel page's city, Kottayam).
-async function refreshRates() {
+// Gold and silver for Kerala; with `all`, also the LPG cylinder per district
+// (Pathanamthitta, which has no page, uses Kottayam's) and the farm prices.
+async function refreshRates(all: boolean) {
   const errors: string[] = [];
-  const page = (name: string, url: string, parse: (html: string) => RateRow[]) => async (): Promise<RateRow[]> => {
-    try {
-      const found = parse(await (await get(url)).text());
-      if (!found.length) throw new Error('no prices on the page');
-      return found;
-    } catch (e) {
-      errors.push(`${name}: ${errorText(e)}`);
-      return [];
-    }
-  };
-  const jobs = [
-    page('gold', GOLD, parseGold),
-    page('silver', SILVER, parseSilver),
-    ...Object.entries(DISTRICTS).map(([region, d]) => page(`lpg ${region}`, lpgUrl(d.fuel), html => parseLpg(html, region))),
-  ];
+  const page = (name: string, url: string, parse: (text: string) => RateRow[], init?: RequestInit) =>
+    async (): Promise<RateRow[]> => {
+      try {
+        const res = await get(url, init);
+        const found = parse(init?.method === 'POST' ? await res.json() : await res.text());
+        if (!found.length) throw new Error('no prices on the page');
+        return found;
+      } catch (e) {
+        errors.push(`${name}: ${errorText(e)}`);
+        return [];
+      }
+    };
+  const jobs = [page('gold', GOLD, parseGold), page('silver', SILVER, parseSilver)];
+  if (all) {
+    jobs.push(
+      page('rubber', RUBBER, parseRubber),
+      page('spices', SPICES, parseSpices),
+      page('farm', AGMARKNET, parseFarmAgmarknet as (t: any) => RateRow[], {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: 'https://agmarknet.gov.in' },
+        body: JSON.stringify(farmBody(isoDay(Date.now()))),
+      }),
+      ...Object.entries(DISTRICTS).map(([region, d]) => page(`lpg ${region}`, lpgUrl(d.fuel), html => parseLpg(html, region))),
+    );
+  }
   const rows = (await pool(jobs)).flat();
   if (rows.length) {
     const fetched_at = new Date().toISOString();
-    const { error } = await db.from('rates').upsert(rows.map(r => ({ ...r, fetched_at })));
+    const { error } = await db.from('rates').upsert(rows.map(r => ({ source: 'goodreturns', ...r, fetched_at })));
     if (error) errors.push(`rates: ${error.message}`);
   }
   return { rows: rows.length, errors };
@@ -142,7 +156,13 @@ Deno.serve(async req => {
   if (!SECRET || req.headers.get('x-refresh-secret') !== SECRET) {
     return new Response('Forbidden', { status: 403 });
   }
-  const [markets, fuel, rates] = await Promise.all([refreshMarkets(), refreshFuel(), refreshRates()]);
+  const { tier = 'all' } = await req.json().catch(() => ({}));
+  const all = tier !== 'fast';
+  const none = { rows: 0, errors: [] as string[] };
+  const [markets, fuel, rates] = await Promise.all([
+    all ? refreshMarkets() : none, all ? refreshFuel() : none, refreshRates(all),
+  ]);
   const ok = markets.rows > 0 || fuel.rows > 0 || rates.rows > 0;
-  return Response.json({ markets, fuel, rates }, { status: ok ? 200 : 502 });
+  if (ok) await db.rpc('mark_checked');
+  return Response.json({ tier, markets, fuel, rates }, { status: ok ? 200 : 502 });
 });

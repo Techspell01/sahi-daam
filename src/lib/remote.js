@@ -38,6 +38,15 @@ export const fromMarket = r => ({
 export const fromFuel = r => ({ fuel: r.fuel, region: r.region, city: r.city, day: localDay(r.day), price: +r.price });
 export const fromRate = r => ({ kind: r.kind, region: r.region, day: localDay(r.day), price: +r.price });
 
+// When the server last checked its sources, and when any price last changed.
+// One tiny row: the app reads it every minute and downloads prices only when
+// changedAt moves.
+export async function fetchLiveMeta() {
+  const { data, error } = await (await db()).from('live_meta').select('checked_at, changed_at').maybeSingle();
+  if (error) throw error;
+  return { checkedAt: data?.checked_at ? Date.parse(data.checked_at) : null, changedAt: data?.changed_at ?? null };
+}
+
 export const toRow = {
   reports: r => ({
     id: r.id, item_id: r.itemId, area_id: r.areaId, price: r.price, paid: r.paid, qty_label: r.qty, shop: r.shop, paid_at: iso(r.at),

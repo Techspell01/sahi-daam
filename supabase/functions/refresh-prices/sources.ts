@@ -183,7 +183,9 @@ export function parseFuel(html: string, fuel: 'petrol' | 'diesel', region: strin
 }
 
 // --- Today's rates: gold, silver (Kerala) and LPG (per district) -----------------
-export type RateRow = { kind: 'gold22' | 'gold24' | 'silver' | 'lpg'; region: string; day: string; price: number };
+// `kind` is gold22, gold24, silver, lpg, or a farm crop (FARM_KINDS below).
+// `source` defaults to Goodreturns in the database.
+export type RateRow = { kind: string; region: string; day: string; price: number; source?: string };
 
 export const GOLD = 'https://www.goodreturns.in/gold-rates/kerala.html';
 export const SILVER = 'https://www.goodreturns.in/silver-rates/kerala.html';
@@ -239,3 +241,106 @@ export function parseLpg(html: string, region: string): RateRow[] {
   }
   return rows;
 }
+
+// --- Farm prices for Kerala's growers, all stored in rupees per kg -------------------
+// Rubber Board: the day's domestic prices, per 100 kg. The first table on the
+// page is Kottayam, the benchmark market (then Kochi and Agartala).
+// Plain http on purpose: the https site's certificate chains to a Let's Encrypt
+// root ("ISRG Root YR") that Deno doesn't trust yet, so https fails in the Edge
+// Function. These are public reference prices. Switch back once Deno trusts it.
+export const RUBBER = 'http://rubberboard.gov.in/public';
+const RUBBER_GRADES: Record<string, string> = {
+  RSS4: 'rubber_rss4', RSS5: 'rubber_rss5', ISNR20: 'rubber_isnr20', 'Latex(60%)': 'rubber_latex',
+};
+
+export function parseRubber(html: string): RateRow[] {
+  // The date is in the heading just above the first price table: the nearest one before it.
+  const at = html.search(/<table[^>]*>(?:(?!<\/table>)[\s\S])*RSS4/);
+  const date = at < 0 ? null : [...html.slice(Math.max(0, at - 3000), at).matchAll(/(\d{2})-(\d{2})-(\d{4})/g)].at(-1);
+  const table = tableTexts(html).map(t => t.replace(/&#160;/g, ' ')).find(t => /RSS4/.test(t) && /ISNR20/.test(t));
+  if (!date || !table) return [];
+  const day = iso(+date[3], +date[2], +date[1]);
+  const rows: RateRow[] = [];
+  for (const m of table.matchAll(/(RSS4|RSS5|ISNR20|Latex\(60%\))\s+([\d.]+)/g)) {
+    const perKg = Number(m[2]) / 100;
+    if (perKg > 20 && perKg < 2000) rows.push({ kind: RUBBER_GRADES[m[1]], region: 'kerala', day, price: perKg, source: 'rubberboard' });
+  }
+  return rows;
+}
+
+// Spices Board: Kochi's prices per kg in a table, and the day's small-cardamom
+// e-auctions as text. Cardamom is the auctions' average, weighted by kilos sold.
+export const SPICES = 'https://www.indianspices.com/marketing/price/domestic/current-market-price.html';
+const SPICE_ROWS: [RegExp, RegExp, string][] = [
+  [/^Pepper$/i, /^Ungarbled$/i, 'pepper'],
+  [/^Pepper$/i, /^Garbled$/i, 'pepper_garbled'],
+  [/^Nutmeg$/i, /^Without Shell$/i, 'nutmeg'],
+  [/^Mace$/i, /^Red$/i, 'mace'],
+  [/^Clove$/i, /.*/, 'clove'],
+];
+const dmy = (s: string) => {
+  const m = /(\d{1,2})-([A-Za-z]{3})-(\d{4})/.exec(s);
+  return m && month(m[2]) ? iso(+m[3], month(m[2]), +m[1]) : null;
+};
+
+export function parseSpices(html: string): RateRow[] {
+  const rows: RateRow[] = [];
+  const trs = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)]
+    .map(m => [...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g)].map(c => c[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()));
+  for (const [date, spice, centre, , grade, , , , avg] of trs) {
+    const day = dmy(date ?? '');
+    const price = Number(avg);
+    if (!day || !/cochin|kochi/i.test(centre ?? '') || !(price > 10 && price < 50000)) continue;
+    const hit = SPICE_ROWS.find(([s, g]) => s.test(spice) && g.test(grade ?? ''));
+    if (hit && !rows.some(r => r.kind === hit[2])) rows.push({ kind: hit[2], region: 'kerala', day, price, source: 'spicesboard' });
+  }
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const auctions = new Map<string, { kg: number; value: number }>();
+  for (const m of text.matchAll(/Small Cardamom\s*,\s*Date of Auction:\s*([\w-]+).*?Qty Sold \(Kgs\):\s*([\d.]+).*?Avg\. Price \(Rs\.\/Kg\):\s*([\d.]+)/g)) {
+    const day = dmy(m[1]);
+    const kg = Number(m[2]);
+    const avg = Number(m[3]);
+    if (!day || !(kg > 0) || !(avg > 100 && avg < 20000)) continue;
+    const a = auctions.get(day) ?? { kg: 0, value: 0 };
+    auctions.set(day, { kg: a.kg + kg, value: a.value + kg * avg });
+  }
+  for (const [day, a] of auctions) {
+    rows.push({ kind: 'cardamom', region: 'kerala', day, price: Math.round((a.value / a.kg) * 100) / 100, source: 'spicesboard' });
+  }
+  return rows;
+}
+
+// Agmarknet, Kerala-wide: the other crops (rupees per quintal → per kg).
+export const FARM_COMMODITIES: Record<number, string> = {
+  111: 'copra', 116: 'coconut', 118: 'arecanut', 41: 'coffee', 88: 'cocoa', 33: 'cashew', 2: 'paddy', 85: 'tapioca',
+};
+const FARM_NAMES: Record<string, string> = {
+  copra: 'copra', coconut: 'coconut', 'arecanut(betelnut/supari)': 'arecanut', coffee: 'coffee', cocoa: 'cocoa',
+  cashewnuts: 'cashew', 'paddy(common)': 'paddy', tapioca: 'tapioca',
+};
+
+export function farmBody(date: string) {
+  return { ...agmarknetBody(date), commodity: Object.keys(FARM_COMMODITIES).map(Number) };
+}
+
+export function parseFarmAgmarknet(json: any): RateRow[] {
+  const cols = json?.data?.columns?.find((c: any) => c.key === 'price_group')?.columns ?? [];
+  const dayOf: Record<string, string | null> = {};
+  for (const c of cols) dayOf[c.key] = parseDayTitle(c.title);
+  const rows: RateRow[] = [];
+  for (const r of json?.data?.records ?? []) {
+    const kind = FARM_NAMES[String(r.cmdt_name ?? '').trim().toLowerCase()];
+    if (!kind) continue;
+    for (const key of ['as_on_price', 'one_day_ago_price', 'two_day_ago_price']) {
+      const perKg = Math.round(parseFloat(r[key])) / 100;
+      const day = dayOf[key];
+      if (day && perKg >= 1 && perKg <= 5000) rows.push({ kind, region: 'kerala', day, price: perKg, source: 'agmarknet' });
+    }
+  }
+  return rows;
+}
+
+// Every farm kind the app knows (src/lib/farm.js lists them for the screen).
+export const FARM_KINDS = [
+  ...Object.values(RUBBER_GRADES), ...new Set(SPICE_ROWS.map(r => r[2])), 'cardamom', ...Object.values(FARM_COMMODITIES),
+];

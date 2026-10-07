@@ -137,6 +137,20 @@ Phone-speed numbers for the production build (4× CPU throttle):
 - **Why mandi prices aren't ranked:** calibrating Agmarknet against VFPCK per item still gave Wayanad −45% and Pathanamthitta +40%. Their mandis run at about 0.5× and 1.5× the Kerala middle on *every* vegetable (farm-gate versus near-retail markets), a district-wide bias that outlier filters can't catch. The fix is a real retail source for those districts; see the ideas below.
 - Code: public at https://github.com/Techspell01/sahi-daam. Also on the GitHub profile (Projects card, Data & ML) and featured on the portfolio.
 
+## Phase 3e: farm prices, real data only, and freshness (live 2026-10-07)
+
+- **Farm prices** on the Rates tab, all in ₹/kg:
+  - Rubber Board (Kottayam): RSS-4, RSS-5, ISNR-20, latex. Fetched over http, because the https certificate chains to "ISRG Root YR", which Deno doesn't trust yet.
+  - Spices Board (Kochi): pepper ungarbled and garbled, nutmeg, mace, clove, and small cardamom (the day's e-auctions, averaged by kilos sold).
+  - Agmarknet (Kerala): coconut by weight, copra, arecanut, coffee, cocoa, cashew, paddy, tapioca.
+- **Real data only:** online, the app no longer shows sample prices. Items with no public source and no reports show "–", and "people usually pay" for autos appears only with real trips. Demo data remains only for the offline version (no Supabase settings).
+- **Freshness:**
+  - pg_cron runs `refresh_prices('fast')` (gold, silver) every 15 minutes and `refresh_prices('all')` hourly at :05.
+  - Each run calls `mark_checked()`. Row triggers move `live_meta.changed_at` only on a new or changed price; an upsert of the same value doesn't count.
+  - The app reads `live_meta` every minute while visible, and refetches prices only when `changed_at` moves. The Rates tab says "Checked N min ago".
+  - On the live site, 2 checks were seen in 150 s and nothing was refetched while nothing had changed.
+- **Gotcha:** Supabase's API connections load pg-safeupdate, so every `UPDATE` (even in a trigger) needs a `WHERE`. A trigger without one rolled back a whole rates upsert. The local stack doesn't load it, so local tests won't catch this.
+
 ## Ideas (not started)
 
 **What people will use every day or week**
@@ -144,7 +158,6 @@ Phone-speed numbers for the production build (4× CPU throttle):
 - **Market list:** a shopping list with the fair price of each item and the expected total. Ticking an item off at the shop records what you paid, so every list becomes price reports.
 - **Price alerts:** "tomato under ₹40 in Thrissur" or "gold down ₹500 a pavan", by Web Push (the same setup as Weee).
 - **KSRTC bus and taxi fares,** next to the auto fare.
-- **Farm prices for growers:** rubber, coconut, pepper, cardamom (Rubber Board and Spices Board publish daily). There's a large audience in Kerala.
 
 **Data**
 - **DCA retail prices** (fcainfoweb, about 550 centres, 22 essentials). These are real shop prices for the district headquarters VFPCK doesn't cover, so all 14 districts could be ranked. It's an ASP.NET postback form, so expect a few steps of scraping.

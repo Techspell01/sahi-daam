@@ -189,7 +189,7 @@ export default function Home({ data, onPickArea }) {
           </section>
 
           <p className="note">{Icon.info()}<span>{SHARED
-            ? "Vegetable prices come live each day from VFPCK's district markets and Agmarknet mandi prices, until enough people report. Items marked sample have no live source yet. Prices people add are real and shared, without names."
+            ? "Every price here is real: vegetables from VFPCK's district markets and Agmarknet, the rest from what people paid. Items with no public source show – until someone reports. Prices people add are shared, without names."
             : 'These are demo prices for now. Prices you add are real and stay on this phone.'}</span></p>
         </>
       )}

@@ -47,14 +47,18 @@ export function areaMedians(reps, now = Date.now(), days = 14) {
   }).filter(Boolean).sort((a, b) => a.value - b.value);
 }
 
-// Cost of the weekly kitchen basket, day by day. Items with a live mandi price
-// use its estimate; the rest use report medians.
+// Cost of the weekly kitchen basket, day by day. Items with a live market price
+// use it; the rest use report medians. Items with no price in the last week are
+// left out (`items` on the result lists the ones counted).
 export function basketSeries(reports, now = Date.now(), days = 30, market = new Map()) {
   const m = byItem(reports);
-  const parts = BASKET.map(([id, qty]) => [qty, market.get(id)?.length
+  const all = BASKET.map(([id, qty]) => [id, qty, market.get(id)?.length
     ? estimateSeries(market.get(id), { now, days })
     : dailySeries(m.get(id), { now, days, window: 5 })]);
-  return parts[0][1].map((p, d) => {
+  const counted = all.filter(([, , s]) => s.slice(-7).some(p => p.value != null));
+  const parts = counted.map(([, qty, s]) => [qty, s]);
+  if (!parts.length) return Object.assign([], { items: [] });
+  const out = parts[0][1].map((p, d) => {
     let sum = 0;
     for (const [qty, s] of parts) {
       if (s[d].value == null) return { day: p.day, value: null };
@@ -62,6 +66,7 @@ export function basketSeries(reports, now = Date.now(), days = 30, market = new 
     }
     return { day: p.day, value: sum };
   });
+  return Object.assign(out, { items: counted.map(([id, qty]) => [id, qty]) });
 }
 
 // How much pricier or cheaper each area is than the city, across one category.

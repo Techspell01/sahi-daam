@@ -5,7 +5,7 @@ import { BANDS, itemAcross } from '../lib/market.js';
 import { areaMedians, byItem, itemSeries, itemSummary } from '../lib/prices.js';
 import { goBack } from '../lib/router.js';
 import { median, verdict } from '../lib/stats.js';
-import { logCheck, pushRecent, useStore } from '../lib/store.js';
+import { logCheck, pushRecent, useLiveMeta, useStore } from '../lib/store.js';
 import { AreaDots, DataTable, PriceStrip, TrendChart } from '../components/charts.jsx';
 import { Icon } from '../components/Icons.jsx';
 import { localName, MoneyInput, Verdict } from '../components/ui.jsx';
@@ -36,6 +36,7 @@ function liveSource(fair, unit) {
 export default function Item({ id, data, onAdd }) {
   const item = ITEM[id];
   const settings = useStore(s => s.settings);
+  const meta = useLiveMeta();
   const [quote, setQuote] = useState('');
 
   const reps = item ? byItem(data.reports).get(id) : [];
@@ -106,13 +107,17 @@ export default function Item({ id, data, onAdd }) {
                 {fair.removed > 0 && <>, with {fair.removed} unusual {fair.removed === 1 ? 'price' : 'prices'} left out</>}.
               </p>
             )}
-            {live && <p className="fair-note">{live.note} Real prices people add take over once there are enough.</p>}
+            {live && (
+              <p className="fair-note">
+                {live.note}{meta?.checkedAt ? ` Checked ${ago(meta.checkedAt)}.` : ''} Real prices people add take over once there are enough.
+              </p>
+            )}
             {fair.sample && <p className="fair-note">Sample data: there's no live price source for {item.name.toLowerCase()} yet. Add what you paid to make it real.</p>}
             {!estimate && !fair.sample && fair.scope === 'city' && <p className="fair-note">Not enough reports in {area.name} yet, so this uses all of Kerala.</p>}
           </section>
         );
       })() : (
-        <p className="empty">No reports yet. Be the first to add one.</p>
+        <p className="empty">No price yet. There's no public source for {item.name.toLowerCase()}, so it comes from what people pay. Be the first to add one.</p>
       )}
 
       {fair && (

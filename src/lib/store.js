@@ -7,6 +7,7 @@ import { useMemo, useSyncExternalStore } from 'react';
 import * as cache from './cache.js';
 import { areaId } from './catalog.js';
 import { makeDemo, withDemo } from './demo.js';
+import { FARM } from './farm.js';
 import { liveItems, marketByItem } from './market.js';
 import * as remote from './remote.js';
 import { DAY } from './stats.js';
@@ -30,7 +31,10 @@ const DEFAULTS = {
 // Everyone else's prices plus live mandi and fuel prices, cached for offline use.
 // `cursor` is the newest visible_at fetched, `full` when everything was last fetched.
 // Live prices are for one district (`region`) and refetched when you change it.
-const NO_SHARED = { reports: [], autos: [], market: [], latest: [], fuel: [], rates: [], region: null, at: 0, full: 0, cursor: null };
+// `changed` is live_meta.changed_at when they were last fetched.
+const NO_SHARED = {
+  reports: [], autos: [], market: [], latest: [], fuel: [], rates: [], region: null, changed: null, at: 0, full: 0, cursor: null,
+};
 
 function read(key) {
   try { return JSON.parse(localStorage.getItem(key) ?? 'null'); } catch { return null; }
@@ -59,16 +63,24 @@ const emit = () => listeners.forEach(l => l());
 
 function set(patch) {
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
-  const { shared, ...mine } = state; // everyone else's prices have their own key, written only when fetched
+  const { shared, meta, ...mine } = state; // shared prices have their own store; meta is never saved
   try { localStorage.setItem(KEY, JSON.stringify(mine)); } catch { /* private mode: keep it in memory */ }
   emit();
 }
 
-// Writing tens of thousands of rows to IndexedDB blocks the page for a moment,
-// so fetchAll calls this only when something changed.
-function setShared(shared) {
+// Merges `patch` (an object, or a function of the current shared state) into
+// the shared state. Writing tens of thousands of rows to IndexedDB blocks the
+// page for a moment, so callers only call this when something changed.
+function setShared(patch) {
+  const shared = { ...state.shared, ...(typeof patch === 'function' ? patch(state.shared) : patch) };
   state = { ...state, shared };
   cache.setItem(SHARED_KEY, shared);
+  emit();
+}
+
+// When the server last checked its sources ({ checkedAt, changedAt }); in memory only.
+function setMeta(meta) {
+  state = { ...state, meta };
   emit();
 }
 
@@ -91,8 +103,10 @@ export function useStore(select) {
 let demo;
 export const getDemo = () => (demo ??= makeDemo());
 
-// Everything the screens show: reports (yours, everyone else's, and sample ones
-// for items with no live source), auto trips, live mandi prices by item, and fuel.
+// Everything the screens show: reports (yours and everyone else's), auto trips,
+// live market prices by item, fuel, and today's rates. Online, every price is
+// real: items with no live source and no reports simply have no price yet.
+// Sample data only appears in the offline version (no Supabase settings).
 export function useData() {
   const reports = useStore(s => s.reports);
   const autos = useStore(s => s.autos);
@@ -104,10 +118,8 @@ export function useData() {
     const market = marketByItem(here ? shared.market : [], area);
     const ids = new Set([...reports, ...autos].map(r => r.id));
     const others = list => list.filter(r => !ids.has(r.id));
-    const blended = withDemo(getDemo(), {
-      reports: [...others(shared.reports), ...reports],
-      autos: [...others(shared.autos), ...autos],
-    }, Date.now(), liveItems(market));
+    const real = { reports: [...others(shared.reports), ...reports], autos: [...others(shared.autos), ...autos] };
+    const blended = SHARED ? real : withDemo(getDemo(), real, Date.now(), liveItems(market));
     const fuel = kind => (here ? shared.fuel : []).filter(f => f.fuel === kind);
     const rate = kind => (here || kind !== 'lpg' ? shared.rates : []).filter(r => r.kind === kind);
     return {
@@ -116,6 +128,7 @@ export function useData() {
       latest: shared.latest,
       fuel: { petrol: fuel('petrol'), diesel: fuel('diesel') },
       rates: { gold22: rate('gold22'), gold24: rate('gold24'), silver: rate('silver'), lpg: rate('lpg') },
+      farm: Object.fromEntries(FARM.map(f => [f.kind, rate(f.kind)])),
     };
   }, [reports, autos, shared, area]);
 }
@@ -234,39 +247,51 @@ export function mergeShared(old, fresh, since) {
 const FULL_EVERY = 24 * 3600e3; // a full fetch also drops prices people deleted
 const MARGIN = 3 * 60e3; // re-fetch a little overlap; duplicates merge by id
 
-async function fetchAll() {
+// Everyone else's prices: only what's new since last time, except a full
+// fetch once a day (which also drops prices people deleted).
+async function fetchReports() {
   await cacheReady;
   const now = Date.now();
   const since = now - 40 * DAY;
   const old = state.shared;
   const delta = old.cursor != null && now - old.full < FULL_EVERY;
-  const [shared, live] = await Promise.allSettled([
-    remote.fetchShared(since, delta ? old.cursor - MARGIN : null),
-    remote.fetchLive(since, state.settings.area),
-  ]);
-  const next = { ...old, at: now };
-  let changed = false;
-  if (shared.status === 'fulfilled') {
-    const { reports, autos } = shared.value;
-    changed = !delta || reports.length > 0 || autos.length > 0;
-    if (changed) {
-      next.reports = delta ? mergeShared(old.reports, reports, since) : reports;
-      next.autos = delta ? mergeShared(old.autos, autos, since) : autos;
-    }
+  const { reports, autos } = await remote.fetchShared(since, delta ? old.cursor - MARGIN : null);
+  if (delta && !reports.length && !autos.length) { old.at = now; return; } // nothing new: no re-render
+  setShared(s => {
+    const next = {
+      reports: delta ? mergeShared(s.reports, reports, since) : reports,
+      autos: delta ? mergeShared(s.autos, autos, since) : autos,
+      at: now,
+      ...(delta ? {} : { full: now }),
+    };
     let newest = 0;
     for (const r of next.reports) if (r.seen > newest) newest = r.seen;
     for (const r of next.autos) if (r.seen > newest) newest = r.seen;
-    next.cursor = newest || null;
-    if (!delta) next.full = now;
-  }
-  if (live.status === 'fulfilled' && liveChanged(old, live.value)) {
-    Object.assign(next, live.value);
-    changed = true;
-  }
-  // Nothing new: keep the same object so screens don't recompute everything.
-  if (changed) setShared(next);
-  else old.at = now;
-  if (shared.status === 'rejected') throw shared.reason;
+    return { ...next, cursor: newest || null };
+  });
+}
+
+const LIVE = ['region', 'market', 'latest', 'fuel', 'rates'];
+const liveChanged = (old, live) => LIVE.some(k => JSON.stringify(old[k]) !== JSON.stringify(live[k]));
+
+// The live prices for your district. `changedAt` is live_meta.changed_at, kept
+// so the next check knows whether anything moved since.
+async function fetchLive(changedAt = null) {
+  await cacheReady;
+  const live = await remote.fetchLive(Date.now() - 40 * DAY, state.settings.area);
+  if (liveChanged(state.shared, live)) setShared({ ...live, changed: changedAt });
+  else if (changedAt) state.shared.changed = changedAt;
+}
+
+// After you change district.
+const fetchLiveOnly = () => fetchLive(state.meta?.changedAt ?? null);
+
+async function fetchAll() {
+  await cacheReady;
+  const meta = await remote.fetchLiveMeta().catch(() => null);
+  if (meta) setMeta(meta);
+  const [reports] = await Promise.allSettled([fetchReports(), fetchLive(meta?.changedAt ?? null)]);
+  if (reports.status === 'rejected') throw reports.reason;
 
   const mine = await remote.fetchMine();
   if (mine) {
@@ -277,15 +302,16 @@ async function fetchAll() {
   }
 }
 
-const LIVE = ['region', 'market', 'latest', 'fuel', 'rates'];
-const liveChanged = (old, live) => LIVE.some(k => JSON.stringify(old[k]) !== JSON.stringify(live[k]));
-
-// Just the live prices, after you change district.
-async function fetchLiveOnly() {
-  await cacheReady;
-  const live = await remote.fetchLive(Date.now() - 40 * DAY, state.settings.area);
-  if (liveChanged(state.shared, live)) setShared({ ...state.shared, ...live });
+// Every minute while the app is open: has the server seen new prices? A single
+// tiny row; the prices themselves are only downloaded when they changed.
+async function tick() {
+  const meta = await remote.fetchLiveMeta();
+  setMeta(meta);
+  const live = meta.changedAt && meta.changedAt !== state.shared.changed ? fetchLive(meta.changedAt) : null;
+  await Promise.allSettled([live, fetchReports()]);
 }
+
+export const useLiveMeta = () => useStore(s => s.meta);
 
 export const sync = () => (SHARED ? queue(sendAll) : chain);
 
@@ -305,4 +331,7 @@ if (SHARED && typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refresh();
   });
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && navigator.onLine !== false) queue(tick);
+  }, 60e3);
 }
