@@ -129,6 +129,33 @@ Phone-speed numbers for the production build (4× CPU throttle):
 
 **Checks on 2026-10-07 (cloud):** `check:backend` 31/31, `check:sql` 579/579, `supabase test db --linked` all pass. The refresh run gave 647 market rows, 308 fuel rows and 184 rate rows, with no errors. The live site was walked through as a Thrissur user (by GPS) and a Kozhikode user. The upgrade from the Kochi schema was tested by rolling a local database back to it, adding old rows and migrating.
 
+## Phase 3d: all 14 districts compared, and "you're in X" (live 2026-10-07)
+
+- Item pages list **all 14 districts**. Districts with a VFPCK shop price are ranked on a dot scale. Mandi-only districts show their mandi price as plain text and aren't ranked, and districts with neither show "–".
+- Pulse ranks districts against the Kerala middle and has a **price table** (tomato, onion, shallots, potato) for every district. The district picker shows each district's percentage.
+- Home compares your district with Kerala. When location is already allowed and your phone is in another district, it says "You're in Ernakulam right now: vegetables 7% pricier than Thrissur" and offers to switch. It never prompts for location (`silentPosition`).
+- **Why mandi prices aren't ranked:** calibrating Agmarknet against VFPCK per item still gave Wayanad −45% and Pathanamthitta +40%. Their mandis run at about 0.5× and 1.5× the Kerala middle on *every* vegetable (farm-gate versus near-retail markets), a district-wide bias that outlier filters can't catch. The fix is a real retail source for those districts; see the ideas below.
+- Code: public at https://github.com/Techspell01/sahi-daam. Also on the GitHub profile (Projects card, Data & ML) and featured on the portfolio.
+
+## Ideas (not started)
+
+**What people will use every day or week**
+- **Gold jewellery quote check:** weight, purity, making charge % and GST → the fair final price, checked against the jeweller's quote. Builds on the gold rate already fetched.
+- **Market list:** a shopping list with the fair price of each item and the expected total. Ticking an item off at the shop records what you paid, so every list becomes price reports.
+- **Price alerts:** "tomato under ₹40 in Thrissur" or "gold down ₹500 a pavan", by Web Push (the same setup as Weee).
+- **KSRTC bus and taxi fares,** next to the auto fare.
+- **Farm prices for growers:** rubber, coconut, pepper, cardamom (Rubber Board and Spices Board publish daily). There's a large audience in Kerala.
+
+**Data**
+- **DCA retail prices** (fcainfoweb, about 550 centres, 22 essentials). These are real shop prices for the district headquarters VFPCK doesn't cover, so all 14 districts could be ranked. It's an ASP.NET postback form, so expect a few steps of scraping.
+- **Fish prices:** the biggest gap. Matsyafed fish-mart price lists, or a campaign to collect reports at fish markets.
+- Learn the Agmarknet → retail margin per district from VFPCK overlap and real reports, then check it against held-out weeks.
+
+**Growth**
+- **Share a verdict** as an image card to WhatsApp ("Tomato ₹70 at Thrissur: Overpriced, fair ₹41–52").
+- A full **Malayalam UI**.
+- A weekly district digest: "This week in Thrissur: tomato −8%, onion +5%".
+
 ## Phase 3c: India (next)
 
 - Agmarknet covers every district in India. The client already handles a region with a state-wide fallback, so regions become state → district.
