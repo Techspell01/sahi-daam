@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AREA, PLACE, PLACES } from '../lib/catalog.js';
-import { AUTO_RATE, autoFair, isNight, roadKm } from '../lib/fare.js';
-import { rupees } from '../lib/format.js';
+import { AUTO_RATE, autoFair, isNight, meterFare, meterSteps, roadKm } from '../lib/fare.js';
+import { fare as meter, paise, rupees } from '../lib/format.js';
 import { getPosition, placeName, roadDistance, searchPlaces } from '../lib/geo.js';
 import { goBack } from '../lib/router.js';
 import { verdict } from '../lib/stats.js';
@@ -86,6 +86,15 @@ function PlacePicker({ open, onClose, onPick, title, exclude, near, landmarks: a
   );
 }
 
+// "₹30 for the first 1.5 km + ₹1.50 × 27 for 2.7 km more = ₹70.50 on the meter,
+// plus 50% at night", so the number can be checked against the meter.
+function fareParts(km, night) {
+  const steps = meterSteps(km);
+  const parts = [`₹${AUTO_RATE.min} for the first ${AUTO_RATE.minKm} km`];
+  if (steps) parts.push(`${paise(AUTO_RATE.perStep)} × ${steps} for ${Math.round(steps * AUTO_RATE.stepKm * 10) / 10} km more`);
+  return parts.join(' + ') + (night ? ` = ${meter(meterFare(km))} on the meter, plus 50% at night` : '');
+}
+
 // Full-screen card to show the driver: huge numbers, readable from outside the auto.
 function DriverCard({ open, onClose, fare, from, to, km, night }) {
   if (!open) return null;
@@ -93,7 +102,7 @@ function DriverCard({ open, onClose, fare, from, to, km, night }) {
     <div className="driver" role="dialog" aria-modal="true" aria-label="Fare to show the driver" onClick={onClose}>
       <p className="driver-ml">മീറ്റർ ചാർജ്</p>
       <p className="driver-label">Meter fare</p>
-      <p className="driver-fare">{rupees(fare)}</p>
+      <p className="driver-fare">{meter(fare)}</p>
       <p className="driver-route">{from && to ? `${from.name} → ${to.name}` : 'Your trip'} · {km} km{night ? ' · night' : ''}</p>
       <p className="driver-route ml">{from?.ml && to?.ml ? `${from.ml} → ${to.ml}` : ''}</p>
       <button type="button" className="btn ghost-inverse" onClick={onClose}>Close</button>
@@ -179,8 +188,9 @@ export default function Auto({ data, onAdd }) {
 
       {fair && (
         <section className="fare-card">
-          <span className="eyebrow">Meter fare · about {km} km</span>
-          <p className="fare-big">{rupees(fair.meter)}</p>
+          <span className="eyebrow">{night ? 'Night fare' : 'Meter fare'} · about {km} km</span>
+          <p className="fare-big">{meter(fair.meter)}</p>
+          <p className="fair-sub">{fareParts(km, night)}</p>
           {fair.n > 0 && (
             <p className="fair-sub">
               People usually pay <b>{rupees(fair.low)}–{rupees(fair.high)}</b> for a trip like this.

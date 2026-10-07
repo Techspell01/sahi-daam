@@ -25,4 +25,4 @@ Fair-price checker PWA for all of Kerala (14 districts): fair prices for vegetab
 - Prices added before phase 2 (no `sync` field) were promised to stay on the phone. Never upload them.
 - `npx supabase config push --yes` pushes every setting in config.toml. Settings left at `supabase init` defaults overwrite the cloud ones: on 2026-10-07 this turned email confirmations and MFA off until they were restored. Read the diff before saying yes.
 - Supabase and Vercel must be the user's own accounts via the CLI. Never use the claude.ai Supabase connector: that account belongs to someone else.
-- The Kerala auto rate in `src/lib/fare.js` (`AUTO_RATE`) is the 2022 revision and still needs checking against the latest notification.
+- The Kerala auto rate in `src/lib/fare.js` (`AUTO_RATE`), confirmed by the user on 2026-10-07: ₹30 minimum for the first 1.5 km, then ₹1.50 per full 100 m (₹15/km), and 10 pm–5 am 50% on top of the meter fare. Meter fares aren't rounded (they can end in 50 paise); show them with `fare()` from format.js.

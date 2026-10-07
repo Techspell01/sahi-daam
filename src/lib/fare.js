@@ -5,11 +5,12 @@ import { DAY, outlierMask, quantile } from './stats.js';
 export const AUTO_RATE = {
   min: 30, // minimum charge…
   minKm: 1.5, // …covers this many km
-  perKm: 15, // then this much per km
-  night: 0.5, // 50% extra at night
+  stepKm: 0.1, // then the meter goes up every 100 m…
+  perStep: 1.5, // …by ₹1.50 (₹15 a km)
+  night: 0.5, // 10 pm to 5 am: 50% extra on top of the meter fare
   nightFrom: 22,
   nightTo: 5,
-  source: 'Kerala auto rate (2022 revision): ₹30 for the first 1.5 km, then ₹15 per km, 50% extra from 10 pm to 5 am.',
+  source: 'Kerala meter rate (2022 revision): ₹30 minimum for the first 1.5 km, then ₹1.50 for every 100 m (₹15 a km). From 10 pm to 5 am, 50% extra on top of the meter fare.',
 };
 
 const R = 6371;
@@ -28,9 +29,18 @@ export function roadKm(a, b) {
   return Math.max(0.5, Math.round(haversineKm(a, b) * 1.35 * 10) / 10);
 }
 
+// The meter: the minimum, then ₹1.50 for each full 100 m after the first 1.5 km
+// (it only goes up once that 100 m is done). Not rounded: it can end in 50 paise.
 export function meterFare(km, night = false, rate = AUTO_RATE) {
-  const day = km <= rate.minKm ? rate.min : rate.min + (km - rate.minKm) * rate.perKm;
-  return Math.round(day * (night ? 1 + rate.night : 1));
+  const day = rate.min + meterSteps(km, rate) * rate.perStep;
+  return Math.round(day * (night ? 1 + rate.night : 1) * 100) / 100;
+}
+
+// Full 100 m steps past the minimum distance. Works in whole metres so that
+// 4.2 − 1.5 doesn't come out as 2.6999… km.
+export function meterSteps(km, rate = AUTO_RATE) {
+  const extra = Math.round((km - rate.minKm) * 1000);
+  return extra > 0 ? Math.floor(extra / Math.round(rate.stepKm * 1000)) : 0;
 }
 
 export function isNight(date = new Date(), rate = AUTO_RATE) {

@@ -100,4 +100,4 @@ The roadmap, including the plan for the rest of India, is in [PLAN.md](PLAN.md).
 
 ---
 
-Prices are a guide, not an official rate. Gold and silver are board rates before making charges and GST. The auto fare uses Kerala's May 2022 meter rate.
+Prices are a guide, not an official rate. Gold and silver are board rates before making charges and GST. The auto fare uses Kerala's meter rate: ₹30 for the first 1.5 km, then ₹1.50 for every 100 m, and 50% extra from 10 pm to 5 am.

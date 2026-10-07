@@ -12,6 +12,12 @@ export function cheaperPricier(x, than) {
 }
 
 // To the paisa, for prices that move in paise (fuel, silver).
+// Meter fares can end in 50 paise: ₹31.50, but ₹90 rather than ₹90.00.
+export function fare(n) {
+  if (n == null || Number.isNaN(n)) return '–';
+  return Number.isInteger(n) ? rupees(n) : paise(n);
+}
+
 export function paise(n) {
   if (n == null || Number.isNaN(n)) return '–';
   return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

@@ -45,7 +45,7 @@ const ROUTES = [
     path: '/auto',
     title: 'Kerala auto fare calculator: meter fare from your location | Sahi Daam',
     description: 'Work out the Kerala auto rickshaw meter fare for any trip: start from your location, search any place in Kerala, and get the fare on the real road distance, with night charges and a big screen to show the driver.',
-    body: `<h1>Kerala auto fare calculator</h1><p>The meter fare for any trip in Kerala on the real road distance: ₹30 for the first 1.5 km, then ₹15 a km, 50% extra from 10 pm to 5 am. Start from your location or search any place.</p>`,
+    body: `<h1>Kerala auto fare calculator</h1><p>The meter fare for any trip in Kerala on the real road distance: ₹30 minimum for the first 1.5 km, then ₹1.50 for every 100 m (₹15 a km), and 50% extra on top of the meter from 10 pm to 5 am. Start from your location or search any place.</p>`,
   },
   ...ITEMS.map(i => ({
     path: `/item/${i.id}`,

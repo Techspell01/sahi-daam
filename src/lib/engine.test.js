@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { searchItems } from './catalog.js';
 import { makeDemo } from './demo.js';
-import { autoFair, meterFare, roadKm } from './fare.js';
+import { autoFair, meterFare, meterSteps, roadKm } from './fare.js';
 import { change, DAY, dailySeries, fairPrice, niceRound, outlierMask, quantile, verdict } from './stats.js';
 
 const NOW = new Date('2026-10-06T18:00:00+05:30').getTime();
@@ -65,6 +65,17 @@ describe('auto fares', () => {
     expect(meterFare(1.5)).toBe(30);
     expect(meterFare(5.5)).toBe(90);
     expect(meterFare(5.5, true)).toBe(135);
+  });
+
+  it('goes up ₹1.50 for each full 100 m after 1.5 km', () => {
+    expect(meterFare(1.55)).toBe(30); // the next 100 m isn't done yet
+    expect(meterFare(1.6)).toBe(31.5);
+    expect(meterFare(1.7)).toBe(33); // 0.2 / 0.1 is 1.999… in floating point
+    expect(meterFare(4.2)).toBe(70.5);
+    expect(meterFare(4.29)).toBe(70.5);
+    expect(meterSteps(4.2)).toBe(27);
+    expect(meterFare(1.6, true)).toBe(47.25); // 50% on top of the meter
+    expect(meterFare(10, true)).toBe(236.25);
   });
 
   it('estimates road distance from coordinates', () => {
