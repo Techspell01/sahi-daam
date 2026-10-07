@@ -1,0 +1,35 @@
+{
+  "name": "sahi-daam",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Sahi Daam: check if you're paying the right price. Crowd-sourced street prices for vegetables, fish, auto fares and everyday services.",
+  "scripts": {
+    "dev": "vite",
+    "dev:phone": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "icons": "node scripts/make-icons.mjs",
+    "db:catalog": "node scripts/catalog-sql.mjs",
+    "db:test": "supabase test db",
+    "check:sql": "node --env-file=.env.local scripts/check-sql.mjs",
+    "check:backend": "node --env-file=.env.local scripts/check-backend.mjs",
+    "deploy": "npm test && npx vercel deploy --prod --yes --build-env VITE_SUPABASE_URL=https://aifjeqlpmetchsmmzopc.supabase.co --build-env VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_lRhmf1ejxEcEkgiFz6G5Ig_gN1ipM8w"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "sharp": "^0.35.5",
+    "supabase": "^2.119.0",
+    "vite": "^8.3.3",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.3"
+  }
+}

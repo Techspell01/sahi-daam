@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- 1600×900: the main image for a tweet or Reddit post. -->
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css">
+<style>
+  body { display: grid; grid-template-columns: 700px 1fr; padding: 0 0 0 96px; }
+  .copy { display: flex; flex-direction: column; justify-content: center; gap: 30px; }
+  .lockup { font-size: 34px; }
+  .display { font-size: 112px; }
+  .sub { font-size: 30px; max-width: 18em; }
+  .facts { display: flex; flex-direction: column; gap: 12px; font-size: 17px; }
+  .facts span::before { content: ''; display: inline-block; width: 7px; height: 7px; background: var(--ink); border-radius: 2px; margin: 0 14px 2px 0; }
+  .url { font-size: 22px; margin-top: 8px; }
+  .phones { position: relative; }
+  .phone { position: absolute; width: 310px; }
+  .p1 { left: 0; top: 160px; }
+  .p2 { left: 250px; top: 70px; width: 350px; z-index: 2; }
+  .p3 { left: 530px; top: 170px; }
+</style></head>
+<body>
+  <div class="copy">
+    <div class="lockup"><svg class="mark" width="56" height="56" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#0B0B0B"/><path d="M21 16h22M21 25h22M29 16c8 0 11 4 11 9s-3 9-11 9h-6l15 14" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>Sahi Daam</div>
+    <h1 class="display">Is it the<br>right price?</h1>
+    <p class="sub">Check a price anywhere in Kerala before you pay: vegetables, auto fares, fuel and gold.</p>
+    <div class="facts mono">
+      <span>Live market prices for all 14 districts</span>
+      <span>Today's gold, fuel and gas rates</span>
+      <span>Free · no sign-up · works offline</span>
+    </div>
+    <p class="url">sahi-daam-lime.vercel.app</p>
+  </div>
+  <div class="phones">
+    <div class="phone p1"><img src="../screens/1-home.png" alt=""></div>
+    <div class="phone p2"><img src="../screens/2-tomato-check.png" alt=""></div>
+    <div class="phone p3"><img src="../screens/3-rates.png" alt=""></div>
+  </div>
+</body></html>
